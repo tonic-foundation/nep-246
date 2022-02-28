@@ -108,4 +108,22 @@ macro_rules! impl_multi_token_approval {
     };
 }
 
-// TODO: Enumeration impl macro
+/// Multi-token enumeration adds the extension standard offering several
+/// view-only methods to get token supply, tokens per owner, etc.
+#[macro_export]
+macro_rules! impl_multi_token_enumeration {
+    ($contract: ident, $token: ident) => {
+        use $crate::multi_token::enumeration::MultiTokenEnumeration;
+
+        #[near_bindgen]
+        impl MultiTokenEnumeration for $contract {
+            fn tokens(&self, from_index: Option<u64>, limit: u64) -> Vec<Token> {
+                self.$token.tokens(from_index, limit)
+            }
+
+            fn token_by_owner(&self, account_id: AccountId, from_index: Option<u64>, limit: u64) -> Vec<Token> {
+                self.$token.token_by_owner(account_id, from_index, limit)
+            }
+        }
+    };
+}
