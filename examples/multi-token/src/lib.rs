@@ -80,3 +80,4 @@ impl Contract {
 
 nep_246::impl_multi_token_core!(Contract, tokens);
 nep_246::impl_multi_token_approval!(Contract, tokens);
+nep_246::impl_multi_token_enumeration!(Contract, tokens);
