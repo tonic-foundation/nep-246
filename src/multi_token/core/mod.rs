@@ -29,11 +29,23 @@ pub trait MultiTokenCore {
     ///
     /// returns: ()
     ///
-    fn transfer(
+    fn mt_transfer(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
         amount: Balance,
+        approval: Option<u64>,
+    );
+
+    // Make a batch transfer
+    // TODO: better docstring.
+    // returns: ()
+    fn mt_batch_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<u128>,
+        memo: Option<String>,
         approval: Option<u64>,
     );
 
@@ -52,7 +64,7 @@ pub trait MultiTokenCore {
     ///
     /// returns: PromiseOrValue<bool>
     ///
-    fn transfer_call(
+    fn mt_transfer_call(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
@@ -60,6 +72,15 @@ pub trait MultiTokenCore {
         approval_id: Option<u64>,
         msg: String,
     ) -> PromiseOrValue<bool>;
+
+    fn mt_batch_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<u128>,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<Vec<u128>>;
 
     fn approval_for_all(&mut self, owner: AccountId, approved: bool);
 

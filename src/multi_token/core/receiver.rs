@@ -26,12 +26,12 @@ pub trait MultiTokenReceiver {
     ///
     /// Returns the number of unused tokens in integer form. For instance, if `amounts`
     /// is `[10]` but only 9 are needed, it will return `[1]`.
-    fn on_transfer(
+    fn mt_on_transfer(
         &mut self,
         sender_id: AccountId,
         previous_owner_id: AccountId,
-        token_id: TokenId,
-        amounts: U128,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
         msg: String,
-    ) -> PromiseOrValue<U128>;
+    ) -> PromiseOrValue<Vec<U128>>;
 }

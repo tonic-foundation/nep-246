@@ -46,7 +46,7 @@ impl MultiTokenApproval for MultiToken {
             expect_approval(next_id.get(&token_id), Entity::Token);
 
         let new_approval = Approval { amount, approval_id: current_next_id };
-        env::log_str(format!("New approva: {:?}", new_approval).as_str());
+        env::log_str(format!("New approval: {:?}", new_approval).as_str());
 
         // Get approvals for this token
         let approvals = &mut approvals_by_id.get(&token_id).unwrap_or_default();

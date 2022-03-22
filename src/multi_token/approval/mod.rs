@@ -14,7 +14,7 @@ pub trait MultiTokenApproval {
     fn approve(
         &mut self,
         account_id: AccountId,
-        token_id: TokenId,
+        token_id: TokenId, // TODO: handle multiple tokens
         amount: Balance,
         msg: Option<String>
     ) -> Option<Promise>;

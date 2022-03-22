@@ -1,9 +1,13 @@
-use crate::multi_token::token::TokenId;
+use crate::multi_token::token::{Approval, TokenId};
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
+use std::collections::HashMap;
 
 /// `resolve_transfer` will be called after `on_transfer`
 pub trait MultiTokenResolver {
+    /// TODO: Replace this text with MT-specific explanation for NEP-246.
+    ///       This is an artifact copied from the existing codebase for FT implementation.
+    ///
     /// Finalizes chain of cross-contract calls that started from `transfer_call`
     ///
     /// Flow:
@@ -35,11 +39,24 @@ pub trait MultiTokenResolver {
     /// but `receiver_id` only uses 80, `on_transfer` will resolve with `["20"]`, and `resolve_transfer`
     /// will return `[80]`.
 
-    fn resolve_transfer(
+    fn mt_resolve_transfer(
         &mut self,
         sender_id: AccountId,
-        receiver: AccountId,
-        token_id: TokenId,
-        amount: U128,
-    ) -> U128;
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approvals: Option<HashMap<AccountId, Approval>>,
+    ) -> Vec<U128>;
+
+    // It is simpler to just have one resolver method.
+    // Single token transfers can be considered a special case (batch of size one).
+    // The MT contract will nonetheless expose ft_transfer + ft_batch_transfer methods.
+    // fn mt_resolve_batch_transfer(
+    //     &mut self,
+    //     sender_id: AccountId,
+    //     receiver: AccountId,
+    //     token_ids: Vec<TokenId>,
+    //     amount: Vec<U128>,
+    //     approvals: Option<HashMap<AccountId, Approval>>,
+    // ) -> Vec<U128>;
 }

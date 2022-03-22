@@ -9,18 +9,18 @@ macro_rules! impl_multi_token_core {
         #[near_bindgen]
         impl MultiTokenCore for $contract {
             #[payable]
-            fn transfer(
+            fn mt_transfer(
                 &mut self,
                 receiver_id: AccountId,
                 token_id: TokenId,
                 amount: Balance,
                 approval: Option<u64>,
             ) {
-                self.$token.transfer(receiver_id, token_id, amount, approval)
+                self.$token.mt_transfer(receiver_id, token_id, amount, approval)
             }
 
             #[payable]
-            fn transfer_call(
+            fn mt_transfer_call(
                 &mut self,
                 receiver_id: AccountId,
                 token_id: TokenId,
@@ -28,7 +28,31 @@ macro_rules! impl_multi_token_core {
                 approval_id: Option<u64>,
                 msg: String,
             ) -> PromiseOrValue<bool> {
-                self.$token.transfer_call(receiver_id, token_id, amount, approval_id, msg)
+                self.$token.mt_transfer_call(receiver_id, token_id, amount, approval_id, msg)
+            }
+
+            #[payable]
+            fn mt_batch_transfer(
+                &mut self,
+                receiver_id: AccountId,
+                token_ids: Vec<TokenId>,
+                amounts: Vec<u128>,
+                memo: Option<String>,
+                approval: Option<u64>,
+            ) {
+                self.$token.mt_batch_transfer(receiver_id, token_ids, amounts, memo, approval)
+            }
+
+            #[payable]
+            fn mt_batch_transfer_call(
+                &mut self,
+                receiver_id: AccountId,
+                token_ids: Vec<TokenId>,
+                amounts: Vec<u128>,
+                memo: Option<String>,
+                msg: String,
+            ) -> PromiseOrValue<Vec<u128>> {
+                self.$token.mt_batch_transfer_call(receiver_id, token_ids, amounts, memo, msg)
             }
 
             fn token(&self, token_id: TokenId) -> Option<Token> {
@@ -47,18 +71,20 @@ macro_rules! impl_multi_token_core {
         #[near_bindgen]
         impl MultiTokenResolver for $contract {
             #[private]
-            fn resolve_transfer(
+            fn mt_resolve_transfer(
                 &mut self,
                 sender_id: AccountId,
                 receiver_id: AccountId,
-                token_id: TokenId,
-                amount: U128
-            ) -> U128 {
-                self.$token.resolve_transfer(
+                token_ids: Vec<TokenId>,
+                amounts: Vec<U128>,
+                approvals: Option<HashMap<AccountId, Approval>>
+            ) -> Vec<U128> {
+                self.$token.mt_resolve_transfer(
                     sender_id,
                     receiver_id,
-                    token_id,
-                    amount
+                    token_ids,
+                    amounts,
+                    approvals
                 )
             }
         }
