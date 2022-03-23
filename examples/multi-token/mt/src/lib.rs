@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct Contract {
+pub struct ExampleMTContract {
     tokens: MultiToken,
     metadata: LazyOption<MtContractMetadata>,
 }
@@ -30,7 +30,7 @@ enum StorageKey {
 }
 
 #[near_bindgen]
-impl Contract {
+impl ExampleMTContract {
     #[init]
     pub fn new_default_meta(owner_id: AccountId) -> Self {
         let metadata = MtContractMetadata {
@@ -80,10 +80,9 @@ impl Contract {
     }
 }
 
-nep_246::impl_multi_token_core!(Contract, tokens);
-nep_246::impl_multi_token_approval!(Contract, tokens);
-nep_246::impl_multi_token_enumeration!(Contract, tokens);
-
+nep_246::impl_multi_token_core!(ExampleMTContract, tokens);
+nep_246::impl_multi_token_approval!(ExampleMTContract, tokens);
+nep_246::impl_multi_token_enumeration!(ExampleMTContract, tokens);
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
@@ -115,7 +114,7 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .build());
 
-        let mut contract = Contract::new_default_meta(accounts(0));
+        let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let token_md = create_token_md("ABC".into(), "Alphabet token".into());
 
         let token = contract.mt_mint(accounts(0),  token_md.clone(), 1000);
@@ -138,7 +137,7 @@ mod tests {
             .signer_account_id(accounts(0))            
             .predecessor_account_id(accounts(0))
             .build());
-        let mut contract = Contract::new_default_meta(accounts(0));
+        let mut contract = ExampleMTContract::new_default_meta(accounts(0));
 
         let quote_token_md = create_token_md("PYC".into(), "Python token".into());
         let base_token_md = create_token_md("ABC".into(), "Alphabet token".into());
@@ -175,7 +174,7 @@ mod tests {
             .predecessor_account_id(accounts(0))
             .attached_deposit(1)
             .build());
-        let mut contract = Contract::new_default_meta(accounts(0));
+        let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let quote_token_md = create_token_md("ABC".into(), "Alphabet token".into());
 
         // alice starts with 1000, bob with 0.
