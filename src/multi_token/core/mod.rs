@@ -35,7 +35,7 @@ pub trait MultiTokenCore {
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
-        amount: Balance,
+        amount: U128,
         approval: Option<u64>,
         memo: Option<String>
     );
@@ -48,8 +48,7 @@ pub trait MultiTokenCore {
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
         approval_ids: Option<Vec<Option<u64>>>,
-        memo: Option<String>,
-        msg: String
+        memo: Option<String>
     );
 
     /// Transfer MT and call a method on receiver contract. A successful

@@ -14,15 +14,15 @@ pub trait MultiTokenApproval {
     fn approve(
         &mut self,
         account_id: AccountId,
-        token_id: TokenId, // TODO: handle multiple tokens
+        token_id: TokenId,
         amount: Balance,
         msg: Option<String>
     ) -> Option<Promise>;
 
-    /// Revoke an approve for specific token
+    /// Revoke an approval for specific token
     fn revoke(&mut self, token: TokenId, account: AccountId);
 
-    /// Revoke all approves for a token
+    /// Revoke all approvals for a token
     fn revoke_all(&mut self, token: TokenId);
 
     /// Check if account have access to transfer tokens

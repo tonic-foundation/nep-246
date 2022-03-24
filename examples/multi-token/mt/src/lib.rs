@@ -11,7 +11,6 @@ use nep_246::multi_token::{
     core::MultiToken,
     metadata::{MtContractMetadata, TokenMetadata},
 };
-use std::collections::HashMap;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -118,16 +117,16 @@ mod tests {
         let token_md = create_token_md("ABC".into(), "Alphabet token".into());
 
         let token = contract.mt_mint(accounts(0),  token_md.clone(), 1000);
-        assert_eq!(contract.balance_of(accounts(0), vec![token.token_id.clone()]), vec![1000], "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(0), token.token_id.clone()), 1000.into(), "Wrong balance");
         
         contract.register(token.token_id.clone(), accounts(1));
-        assert_eq!(contract.balance_of(accounts(1), vec![token.token_id.clone()]), vec![0], "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(1), token.token_id.clone()), 0.into(), "Wrong balance");
 
         testing_env!(context.attached_deposit(1).build());
-        contract.mt_transfer(accounts(1), token.token_id.clone(), 4, None);
+        contract.mt_transfer(accounts(1), token.token_id.clone(), 4.into(), None, None);
         
-        assert_eq!(contract.balance_of(accounts(0), vec![token.token_id.clone()]), vec![996], "Wrong balance");
-        assert_eq!(contract.balance_of(accounts(1), vec![token.token_id.clone()]), vec![4], "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(0), token.token_id.clone()).0, 996, "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(1), token.token_id.clone()).0, 4, "Wrong balance");
     }
 
     #[test]
@@ -153,16 +152,16 @@ mod tests {
         contract.mt_batch_transfer(
             accounts(1), 
             vec![quote_token.token_id.clone(), base_token.token_id.clone()],
-            vec![4, 600],
+            vec![4.into(), 600.into()],
             None,
             None
         );
     
-        assert_eq!(contract.balance_of(accounts(0), vec![quote_token.token_id.clone()]), vec![996], "Wrong balance");
-        assert_eq!(contract.balance_of(accounts(1), vec![quote_token.token_id.clone()]), vec![4], "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(0), quote_token.token_id.clone()).0, 996, "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(1), quote_token.token_id.clone()).0, 4, "Wrong balance");
 
-        assert_eq!(contract.balance_of(accounts(0), vec![base_token.token_id.clone()]), vec![1400], "Wrong balance");
-        assert_eq!(contract.balance_of(accounts(1), vec![base_token.token_id.clone()]), vec![600], "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(0), base_token.token_id.clone()).0, 1400, "Wrong balance");
+        assert_eq!(contract.mt_balance_of(accounts(1), base_token.token_id.clone()).0, 600, "Wrong balance");
     }
 
     #[test]
