@@ -16,11 +16,11 @@ pub trait MultiTokenReceiver {
     ///
     /// ## Arguments:
     /// * `sender_id`: the sender of `transfer_call`
-    /// * `previous_owner_id`: the account that owned the NFT prior to it being
+    /// * `previous_owner_ids`: the accounts that owned the tokens prior to them being
     ///   transferred to this contract, which can differ from `sender_id` if using
     ///   Approval Management extension
-    /// * `token_ids`: the `token_id` argument given to `transfer_call`
-    /// * `amounts`: the `token_ids` argument given to `transfer_call`
+    /// * `token_ids`: the `token_ids` argument given to `transfer_call`
+    /// * `amounts`: the `amounts` argument given to `transfer_call`
     /// * `msg`: information necessary for this contract to know how to process the
     ///   request. This may include method names and/or arguments.
     ///
@@ -29,7 +29,7 @@ pub trait MultiTokenReceiver {
     fn mt_on_transfer(
         &mut self,
         sender_id: AccountId,
-        previous_owner_id: AccountId,
+        previous_owner_ids: Vec<AccountId>,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
         msg: String,
