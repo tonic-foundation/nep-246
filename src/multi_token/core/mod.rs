@@ -13,28 +13,42 @@ pub use self::resolver::*;
 
 use crate::multi_token::token::TokenId;
 use near_sdk::{AccountId, Balance, PromiseOrValue};
+use near_sdk::json_types::U128;
 
 use super::token::Token;
 
 /// Describes functionality according to this - https://eips.ethereum.org/EIPS/eip-1155
 /// And this - <https://github.com/shipsgold/NEPs/blob/master/specs/Standards/MultiToken/Core.md>
 pub trait MultiTokenCore {
+
     /// Make a single transfer
     ///
     /// # Arguments
     ///
-    /// * `receiver_id`: Receiver of tokens
-    /// * `token_id`: ID of token to send from
-    /// * `amount`: How much to send
+    /// * `receiver_id`: the valid NEAR account receiving the token
+    /// * `token_id`: ID of the token to transfer
+    /// * `amount`: the number of tokens to transfer
     ///
     /// returns: ()
     ///
-    fn transfer(
+    fn mt_transfer(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
-        amount: Balance,
+        amount: U128,
         approval: Option<u64>,
+        memo: Option<String>
+    );
+
+    // Make a batch transfer
+    // Behaves similar 
+    fn mt_batch_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approval_ids: Option<Vec<Option<u64>>>,
+        memo: Option<String>
     );
 
     /// Transfer MT and call a method on receiver contract. A successful
@@ -52,26 +66,33 @@ pub trait MultiTokenCore {
     ///
     /// returns: PromiseOrValue<bool>
     ///
-    fn transfer_call(
+    fn mt_transfer_call(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
         amount: Balance,
         approval_id: Option<u64>,
-        msg: String,
+        msg: String
     ) -> PromiseOrValue<bool>;
 
-    fn approval_for_all(&mut self, owner: AccountId, approved: bool);
+    fn mt_batch_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        memo: Option<String>,
+        msg: String
+    ) -> PromiseOrValue<Vec<u128>>;
 
-    /// Get balance of user in specified tokens
-    ///
-    /// # Arguments
-    /// 
-    /// * `owner`: Account to check
-    /// # `id`: Vector of token IDs
-    fn balance_of(&self, owner: AccountId, id: Vec<TokenId>) -> Vec<u128>;
 
+    // View Methods
+    fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>>;
 
-    /// Get all possible info about token
-    fn token(&self, token_id: TokenId) -> Option<Token>;
+    fn mt_balance_of(&self, account_id: AccountId, token_id: TokenId) -> U128;
+
+    fn mt_batch_balance_of(&self, account_id: AccountId, token_ids: Vec<TokenId>) -> Vec<U128>;
+
+    fn mt_supply(&self, token_id: TokenId) -> Option<U128>;
+    
+    fn mt_batch_supply(&self, token_ids: Vec<TokenId>) -> Vec<Option<U128>>;
 }

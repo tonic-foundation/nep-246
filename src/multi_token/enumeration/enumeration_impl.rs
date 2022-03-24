@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use near_sdk::{AccountId, require};
 
 use crate::multi_token::{core::MultiToken, token::{Token, TokenId}};
@@ -15,7 +13,7 @@ impl MultiToken {
         let approvals = self.approvals_by_id.as_ref().unwrap().get(&token_id);
         let next_approval_id = self.next_approval_id_by_id.as_ref().unwrap().get(&token_id);
 
-        Token { token_id, owner_id, metadata, approvals, supply, balances: HashMap::new(), next_approval_id }
+        Token { token_id, owner_id, metadata, approvals, supply, next_approval_id }
     }
 }
 

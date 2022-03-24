@@ -17,27 +17,28 @@ pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOL
 
 const NO_DEPOSIT: Balance = 0;
 
-#[ext_contract(ext_self)]
-trait MtResolver {
-    fn resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver: AccountId,
-        token_id: TokenId,
-        approvals: Option<HashMap<AccountId, Approval>>,
-    ) -> Vector<Balance>;
-}
-
 #[ext_contract(ext_receiver)]
 pub trait MultiTokenReceiver {
-    fn on_transfer(
+    fn mt_on_transfer(
         &mut self,
         sender_id: AccountId,
-        previous_owner_id: AccountId,
-        token_ids: TokenId,
-        amounts: Balance,
+        previous_owner_ids: Vec<AccountId>,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
         msg: String,
-    ) -> PromiseOrValue<Balance>;
+    ) -> PromiseOrValue<Vec<U128>>;
+}
+
+#[ext_contract(ext_self)]
+trait MultiTokenResolver {
+    fn mt_resolve_transfer(
+        &mut self,
+        sender_id: AccountId,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approvals: Option<Vec<Option<Approval>>>,
+    ) -> Vec<U128>;
 }
 
 /// Implementation of the multi-token standard
@@ -203,13 +204,28 @@ impl MultiToken {
         }
     }
 
+    pub fn internal_batch_transfer(
+        &mut self,
+        sender_id: &AccountId,
+        receiver_id: &AccountId,
+        token_ids: &Vec<TokenId>,
+        amounts: &Vec<Balance>,
+        approval_ids: Option<Vec<Option<u64>>>,
+    ) -> (Vec<AccountId>, Vec<Option<HashMap<AccountId, Approval>>>) {
+        let approval_ids = approval_ids.unwrap_or(vec![None; token_ids.len()]);
+        (0..token_ids.len())
+            .map(|i| self.internal_transfer(&sender_id, &receiver_id, &token_ids[i], amounts[i], approval_ids[i]))
+            .unzip()
+    }
+
+
     pub fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
         receiver_id: &AccountId,
         token_id: &TokenId,
-        approval_id: Option<u64>,
         amount: Balance,
+        approval_id: Option<u64>,
     ) -> (AccountId, Option<HashMap<AccountId, Approval>>) {
         // Safety checks
         require!(sender_id != receiver_id);
@@ -220,7 +236,7 @@ impl MultiToken {
         let approvals = self
             .approvals_by_id
             .as_mut()
-            .and_then(|by_id| by_id.remove(token_id));
+            .and_then(|by_id| by_id.remove(token_id));  // Won't this clear all existing approvals for the token? Need to test.
 
         let owner_id = if sender_id != &owner_of_token {
             let approved_accounts = approvals.as_ref().expect("Unauthorized");
@@ -311,11 +327,12 @@ impl MultiToken {
         }
 
         // Increment next id of the token. Panic if it's overflowing u64::MAX
-        self.next_token_id
+        self.next_token_id = self.next_token_id
             .checked_add(1)
             .expect("u64 overflow, cannot mint any more tokens");
 
         let token_id: TokenId = self.next_token_id.to_string();
+
 
         // If contract uses approval management create new LookupMap for approvals
         self.next_approval_id_by_id
@@ -334,7 +351,7 @@ impl MultiToken {
             .and_then(|by_id| by_id.insert(&token_id, &token_metadata.clone().unwrap()));
 
         // Insert new supply
-        self.total_supply.insert(&token_id, &u128::MAX);
+        self.total_supply.insert(&token_id, &u128::MAX); // Total supply is always max?
 
         // Insert new balance
         let mut new_set: LookupMap<AccountId, u128> = LookupMap::new(StorageKey::BalancesInner {
@@ -369,7 +386,6 @@ impl MultiToken {
             token_id,
             owner_id,
             supply: u128::MAX,
-            balances: HashMap::new(),
             metadata: token_metadata,
             approvals: approved_account_ids,
             next_approval_id: Some(0),
@@ -407,20 +423,38 @@ impl MultiToken {
 }
 
 impl MultiTokenCore for MultiToken {
-    fn transfer(
+
+    fn mt_transfer(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
-        amount: Balance,
+        amount: U128,
         approval: Option<u64>,
+        memo: Option<String>
+    ) {
+        self.mt_batch_transfer(receiver_id, vec![token_id], vec![amount], Some(vec![approval]), memo);
+    }
+
+    fn mt_batch_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approval_ids: Option<Vec<Option<u64>>>,
+        memo: Option<String>
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         env::log_str(format!("Predecessor {}", sender_id).as_str());
-        self.internal_transfer(&sender_id, &receiver_id, &token_id, approval, amount);
+        require!(token_ids.len() == amounts.len());
+        require!(token_ids.len() > 0);
+
+        let amounts: Vec<Balance> = amounts.iter().map(|x| x.0).collect();
+
+        self.internal_batch_transfer(&sender_id, &receiver_id, &token_ids, &amounts, approval_ids);
     }
 
-    fn transfer_call(
+    fn mt_transfer_call(
         &mut self,
         receiver_id: AccountId,
         token_id: TokenId,
@@ -436,23 +470,24 @@ impl MultiTokenCore for MultiToken {
         let sender_id = env::predecessor_account_id();
 
         let (old_owner, old_approvals) =
-            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, amount);
+            self.internal_transfer(&sender_id, &receiver_id, &token_id, amount, approval_id);
 
-        ext_receiver::on_transfer(
+        ext_receiver::mt_on_transfer(
             sender_id,
-            old_owner.clone(),
-            token_id.clone(),
-            amount,
+            vec![old_owner.clone()],
+            vec![token_id.clone()],
+            vec![amount.into()],
             msg,
             receiver_id.clone(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_MT_TRANSFER_CALL,
         )
-        .then(ext_self::resolve_transfer(
+        .then(ext_self::mt_resolve_transfer(
             old_owner,
             receiver_id,
-            token_id,
-            old_approvals,
+            vec![token_id],
+            vec![amount.into()],
+            None, // TODO: use old_approvals to restore approvals in case of failure.
             env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
@@ -460,23 +495,85 @@ impl MultiTokenCore for MultiToken {
         .into()
     }
 
-    fn approval_for_all(&mut self, owner: AccountId, approved: bool) {
-        todo!()
+    fn mt_batch_transfer_call(
+        &mut self,
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        memo: Option<String>,
+        msg: String,
+    ) -> PromiseOrValue<Vec<u128>> {
+        // WIP: Needs some refactoring to get batch approvals working.
+        PromiseOrValue::Value(vec![])
+        // assert_one_yocto();
+        // require!(
+        //     env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
+        //     "GAS!GAS!GAS! I gonna to step on the gas"
+        // );
+        // let sender_id = env::predecessor_account_id();
+
+        // let (old_owner, old_approvals) =
+        //     self.internal_batch_transfer(&sender_id, &receiver_id, &token_ids, &amounts, &None);
+
+        // ext_receiver::mt_on_transfer(
+        //     // function specific args:
+        //     sender_id,
+        //     old_owner.clone(),
+        //     token_ids.clone(),
+        //     amounts,
+        //     msg,
+        //     // generic args for all cross-contract calls:
+        //     receiver_id.clone(), // receiver contract account id
+        //     NO_DEPOSIT, // no attached NEAR
+        //     env::prepaid_gas() - GAS_FOR_MT_TRANSFER_CALL, // some attached gas
+        // )
+        // .then(ext_self::mt_resolve_transfer(
+        //     old_owner,
+        //     receiver_id,
+        //     token_ids,
+        //     amounts,
+        //     old_approvals,
+
+        //     env::current_account_id(),
+        //     NO_DEPOSIT,
+        //     GAS_FOR_RESOLVE_TRANSFER,
+        // ))
+        // .into()
     }
 
-    fn balance_of(&self, owner: AccountId, id: Vec<TokenId>) -> Vec<u128> {
-        self.balances_per_token
+    fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
+        token_ids
             .iter()
-            .filter(|(token_id, _)| id.contains(token_id))
-            .map(|(_, balances)| {
-                balances
-                    .get(&owner)
-                    .expect("User does not have account in of the tokens")
-            })
+            .map(|token_id| self.internal_get_token_metadata(&token_id))
             .collect()
     }
 
-    fn token(&self, token_id: TokenId) -> Option<Token> {
+    fn mt_balance_of(&self, account_id: AccountId, token_id: TokenId) -> U128 {
+        self.internal_balance_of(&account_id, &token_id)
+    }
+
+    fn mt_batch_balance_of(&self, account_id: AccountId, token_ids: Vec<TokenId>) -> Vec<U128> {
+        token_ids
+            .iter()
+            .map(|token_id| self.internal_balance_of(&account_id, &token_id))
+            .collect()
+    }
+
+    fn mt_supply(&self, token_id: TokenId) -> Option<U128> {
+        self.internal_supply(&token_id)
+    }
+
+    fn mt_batch_supply(&self, token_ids: Vec<TokenId>) -> Vec<Option<U128>> {
+        token_ids
+            .iter()
+            .map(|token_id| self.internal_supply(&token_id))
+            .collect()
+    }
+}
+
+impl MultiToken {
+
+    fn internal_get_token_metadata(&self, token_id: &TokenId) -> Option<Token> {
         let metadata = if let Some(metadata_by_id) = &self.token_metadata_by_id {
             metadata_by_id.get(&token_id)
         } else {
@@ -489,48 +586,79 @@ impl MultiTokenCore for MultiToken {
             .approvals_by_id
             .as_ref()
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
-        let balances = self.balances_per_token.get(&token_id)?;
 
         Some(Token {
-            token_id,
+            token_id: token_id.clone(),
             owner_id,
             supply,
-            balances: HashMap::new(),
             metadata,
             approvals: approved_accounts,
             next_approval_id,
         })
     }
-}
 
-impl MultiToken {
-    pub fn internal_resolve_transfer(
+    fn internal_balance_of(&self, account_id: &AccountId, token_id: &TokenId) -> U128 {
+        let token_balances_by_user = self.balances_per_token.get(token_id).expect("Token not found.");
+        token_balances_by_user.get(account_id).unwrap_or(0).into()
+    }
+
+    fn internal_supply(&self, token_id: &TokenId) -> Option<U128> {
+        self.total_supply.get(token_id).map(u128::into)
+    }
+
+    pub fn internal_resolve_transfers(
+        &mut self,
+        sender_id: &AccountId,
+        receiver: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approvals: Option<Vec<Option<Approval>>>
+    ) -> (Vec<Balance>, Vec<Balance>) {
+
+        // on_transfer will have returned a promise containing what was unused (refunded)
+        // by the receiver contract.
+        let unused: Vec<U128> = match env::promise_result(0) {
+            PromiseResult::NotReady => env::abort(),
+            PromiseResult::Successful(values) => {
+                if let Ok(unused) = near_sdk::serde_json::from_slice::<Vec<U128>>(&values) {
+                    // we can't be refunded by more than what we sent over
+                    (0..amounts.len()).map(|i| std::cmp::min(amounts[i].into(), unused[i].0).into()).collect()
+                } else {
+                    amounts.clone()
+                }
+            }
+            // TODO: is this correct behavior? Under what circumstance does promise fail?
+            PromiseResult::Failed => vec![0.into(); amounts.len()],
+        };
+
+        (0..token_ids.len()).map(|i| self.internal_resolve_single_transfer(
+            sender_id,
+            receiver.clone(),
+            token_ids[i].clone(),
+            amounts[i].into(),
+            unused[i].into(),
+        )).unzip()
+    }
+
+    pub fn internal_resolve_single_transfer(
         &mut self,
         sender_id: &AccountId,
         receiver: AccountId,
         token_id: TokenId,
-        amount: U128,
+        amount: u128,
+        unused: u128,
     ) -> (Balance, Balance) {
         let amount: Balance = amount.into();
 
-        let unused = match env::promise_result(0) {
-            PromiseResult::NotReady => env::abort(),
-            PromiseResult::Successful(value) => {
-                if let Ok(unused) = near_sdk::serde_json::from_slice::<U128>(&value) {
-                    std::cmp::min(amount, unused.0)
-                } else {
-                    amount
-                }
-            }
-            PromiseResult::Failed => 0,
-        };
-
         // All this `.get()` will not fail since it would fail before it gets to this call
         if unused > 0 {
+            // Whatever was unused gets returned to the original owner.
             let mut balances = self.balances_per_token.get(&token_id).unwrap();
             let receiver_balance = balances.get(&receiver).unwrap_or(0);
 
             if receiver_balance > 0 {
+                // If the receiver doesn't have enough funds to do the
+                // full refund, just refund all that we can.
                 let refund = std::cmp::min(receiver_balance, unused);
                 balances.insert(&receiver, &(receiver_balance - refund));
 
@@ -550,15 +678,18 @@ impl MultiToken {
 }
 
 impl MultiTokenResolver for MultiToken {
-    fn resolve_transfer(
+    fn mt_resolve_transfer(
         &mut self,
         sender_id: AccountId,
-        receiver: AccountId,
-        token_id: TokenId,
-        amount: U128,
-    ) -> U128 {
-        self.internal_resolve_transfer(&sender_id, receiver, token_id, amount)
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approvals: Option<Vec<Option<Approval>>>,
+    ) -> Vec<U128> {
+        self.internal_resolve_transfers(&sender_id, receiver_id, token_ids, amounts, approvals)
             .0
-            .into()
+            .iter()
+            .map(|&x| x.into())
+            .collect()
     }
 }

@@ -21,7 +21,6 @@ pub struct Token {
     pub owner_id: AccountId,
     /// Total amount generated
     pub supply: u128,
-    pub balances: HashMap<AccountId, Balance>,
     pub metadata: Option<TokenMetadata>,
     pub approvals: Option<HashMap<AccountId, Approval>>,
     pub next_approval_id: Option<u64>,

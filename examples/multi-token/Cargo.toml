@@ -1,16 +1,21 @@
 [package]
-name = "nep-246-test"
+name = "multi-token-wrapper"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-crate-type = ["cdylib"]
-
-[dependencies]
-nep-246 = { path = "../../" }
+[dev-dependencies]
+anyhow = "1.0"
+near-primitives = "0.5.0"
 near-sdk = "4.0.0-pre.6"
+near-units = "0.2.0"
+serde_json = "1.0"
+tokio = { version = "1.14", features = ["full"] }
+workspaces = "0.1.1"
+
+# remember to include a line for each contract
+multi-token = { path = "./mt" }
+defi = { path = "./test-contract-defi" }
+approval-receiver = { path = "./test-approval-receiver" }
 
 [profile.release]
 codegen-units = 1
@@ -20,3 +25,11 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[workspace]
+# remember to include a member for each contract
+members = [
+  "mt",
+  "test-contract-defi",
+  "test-approval-receiver",
+]

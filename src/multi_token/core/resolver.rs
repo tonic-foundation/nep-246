@@ -1,14 +1,14 @@
-use crate::multi_token::token::TokenId;
+use crate::multi_token::token::{Approval, TokenId};
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 
 /// `resolve_transfer` will be called after `on_transfer`
 pub trait MultiTokenResolver {
-    /// Finalizes chain of cross-contract calls that started from `transfer_call`
+    /// Finalizes chain of cross-contract calls that started from `mt_transfer_call`
     ///
     /// Flow:
     ///
-    /// 1. Sender calls `transfer_call` on MT contract
+    /// 1. Sender calls `mt_transfer_call` on MT contract
     /// 2. MT contract transfers tokens from sender to receiver
     /// 3. MT contract calls `on_transfer` on receiver contract
     /// 4+. [receiver may make cross-contract calls]
@@ -35,11 +35,12 @@ pub trait MultiTokenResolver {
     /// but `receiver_id` only uses 80, `on_transfer` will resolve with `["20"]`, and `resolve_transfer`
     /// will return `[80]`.
 
-    fn resolve_transfer(
+    fn mt_resolve_transfer(
         &mut self,
         sender_id: AccountId,
-        receiver: AccountId,
-        token_id: TokenId,
-        amount: U128,
-    ) -> U128;
+        receiver_id: AccountId,
+        token_ids: Vec<TokenId>,
+        amounts: Vec<U128>,
+        approvals: Option<Vec<Option<Approval>>>,
+    ) -> Vec<U128>;
 }
